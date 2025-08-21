@@ -2,9 +2,11 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"time"
 
 	database "github.com/4Noyis/my-library/internal/database"
+	"github.com/4Noyis/my-library/internal/handlers"
 	"github.com/4Noyis/my-library/internal/models"
 )
 
@@ -15,15 +17,20 @@ func main() {
 		log.Fatal("failed to connect to mongodb:", err)
 	}
 	defer database.DisconnectMongoDB()
+	http.HandleFunc("/books", handlers.BookHandler)
+	err = http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Fatal("server error: ", err)
+	}
 
-	newBook := genereteBook()
-	database.AddItemMongoDB(&newBook)
+	// newBook := generateBook()
+	// services.AddItemMongoDB(&newBook)
 
 }
 
-func genereteBook() models.Book {
+func generateBook() models.Book {
 	return models.Book{
-		ID:          1,
+		ID:          3,
 		ISBN:        "978-0-452-28423-4",
 		Title:       "1984",
 		Author:      "George Orwell",
