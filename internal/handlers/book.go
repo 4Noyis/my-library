@@ -22,7 +22,7 @@ func BookHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "POST" {
 		newBook(w, r)
 	} else if r.Method == "PATCH" {
-
+		updateBook(w, r)
 	} else if r.Method == "DELETE" {
 		deleteBook(w, r)
 	}
@@ -86,7 +86,7 @@ func deleteBook(w http.ResponseWriter, r *http.Request) error {
 	json.NewEncoder(w).Encode(models.Response{
 		Status:  "success",
 		Message: "book deleted successfully",
-		Book:    deletedBook,
+		Book:    &deletedBook,
 	})
 	return nil
 
@@ -108,11 +108,42 @@ func newBook(w http.ResponseWriter, r *http.Request) error {
 	json.NewEncoder(w).Encode(models.Response{
 		Status:  "status",
 		Message: "new book added successfully",
-		Book:    createdBook,
+		Book:    &createdBook,
 	})
 	return nil
 }
 
-func UpdateBook(w http.ResponseWriter, r *http.Request) {
+func updateBook(w http.ResponseWriter, r *http.Request) error {
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(w, "id parameter required", http.StatusBadRequest)
+		return errors.New("id parameter required")
+	}
 
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid id format", http.StatusBadRequest)
+		return errors.New("invalid id format")
+	}
+
+	var updates models.Book
+	err = json.NewDecoder(r.Body).Decode(&updates)
+	if err != nil {
+		log.Printf("PATCH failed: invalid JSON from %s", r.RemoteAddr)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return errors.New("invalid JSON request")
+	}
+
+	updatedBook, err := services.UpdateBook(id, updates)
+	if err != nil {
+		http.Error(w, "book not found", http.StatusNotFound)
+		return errors.New("book not found")
+	}
+
+	json.NewEncoder(w).Encode(models.Response{
+		Status:  "success",
+		Message: "book updated successfully",
+		Book:    &updatedBook,
+	})
+	return nil
 }

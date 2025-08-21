@@ -26,6 +26,10 @@ func AddNewBook(book models.Book) (models.Book, error) {
 	return repositories.AddNewBook(database.GetClient(), book)
 }
 
+func UpdateBook(id int, updates models.Book) (models.Book, error) {
+	return repositories.UpdateBook(database.GetClient(), id, updates)
+}
+
 func AddItemMongoDB(book *models.Book) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
