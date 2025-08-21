@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -14,16 +15,16 @@ func BookHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == "GET" {
 		if r.URL.Query().Get("id") != "" {
-			GetOneBook(w, r)
+			getOneBook(w, r)
 		} else {
 			getAllBooks(w)
 		}
 	} else if r.Method == "POST" {
-
+		newBook(w, r)
 	} else if r.Method == "PATCH" {
 
 	} else if r.Method == "DELETE" {
-		DeleteBook(w, r)
+		deleteBook(w, r)
 	}
 
 }
@@ -38,7 +39,7 @@ func getAllBooks(w http.ResponseWriter) error {
 	json.NewEncoder(w).Encode(books)
 	return nil
 }
-func GetOneBook(w http.ResponseWriter, r *http.Request) error {
+func getOneBook(w http.ResponseWriter, r *http.Request) error {
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
 		http.Error(w, "id parameter required", http.StatusBadRequest)
@@ -61,7 +62,7 @@ func GetOneBook(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func DeleteBook(w http.ResponseWriter, r *http.Request) error {
+func deleteBook(w http.ResponseWriter, r *http.Request) error {
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
 		http.Error(w, "id parameter required", http.StatusBadRequest)
@@ -75,14 +76,14 @@ func DeleteBook(w http.ResponseWriter, r *http.Request) error {
 	}
 	deletedBook, err := services.DeleteBook(id)
 	if err != nil {
-		json.NewEncoder(w).Encode(models.DeleteResponse{
+		json.NewEncoder(w).Encode(models.Response{
 			Status:  "failed",
 			Message: "book not found on database",
 		})
 		return errors.New("book not found")
 	}
 
-	json.NewEncoder(w).Encode(models.DeleteResponse{
+	json.NewEncoder(w).Encode(models.Response{
 		Status:  "success",
 		Message: "book deleted successfully",
 		Book:    deletedBook,
@@ -91,8 +92,25 @@ func DeleteBook(w http.ResponseWriter, r *http.Request) error {
 
 }
 
-func NewBook(w http.ResponseWriter, r *http.Request) {
-
+func newBook(w http.ResponseWriter, r *http.Request) error {
+	var newBook models.Book
+	err := json.NewDecoder(r.Body).Decode(&newBook)
+	if err != nil {
+		log.Printf("POST failed: invalid JSON from %s", r.RemoteAddr)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return errors.New("invalid JSON request")
+	}
+	createdBook, err := services.AddNewBook(newBook)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return errors.New("failed to create book")
+	}
+	json.NewEncoder(w).Encode(models.Response{
+		Status:  "status",
+		Message: "new book added successfully",
+		Book:    createdBook,
+	})
+	return nil
 }
 
 func UpdateBook(w http.ResponseWriter, r *http.Request) {

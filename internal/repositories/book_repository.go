@@ -68,6 +68,20 @@ func DeleteBook(client *mongo.Client, id int) (models.Book, error) {
 		return models.Book{}, mongo.ErrNoDocuments
 	}
 
-	log.Println("book deleted successfully", deleted.DeletedCount)
+	log.Println("book deleted successfully deletedCount: ", deleted.DeletedCount)
+	return book, nil
+}
+
+func AddNewBook(client *mongo.Client, book models.Book) (models.Book, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	collection := GetMongoCollection(client)
+	ss, err := collection.InsertOne(ctx, book)
+	if err != nil {
+		log.Println("book can not added")
+		return book, err
+	}
+	log.Println("book added successfully new book id:", ss.InsertedID)
 	return book, nil
 }
