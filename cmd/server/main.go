@@ -1,7 +1,12 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	database "github.com/4Noyis/my-library/internal/database"
 	"github.com/4Noyis/my-library/internal/handlers"
@@ -24,9 +29,6 @@ func main() {
 	}
 	defer database.DisconnectMongoDB()
 
-	// Single handler that routes internally by HTTP method
-	// http.HandleFunc("/api/v1/books", handlers.BooksHandler)
-
 	r := mux.NewRouter()
 
 	// Add logging middleware
@@ -39,7 +41,7 @@ func main() {
 	// Protected routes (authentication required)
 	protected := r.PathPrefix("/api/v1").Subrouter()
 	protected.Use(middleware.AuthMiddleware)
-	
+
 	// Book routes - all require authentication
 	protected.HandleFunc("/books", handlers.GetAllBooksHandler).Methods("GET")
 	protected.HandleFunc("/books", handlers.CreateBookHandler).Methods("POST")
@@ -47,15 +49,54 @@ func main() {
 	protected.HandleFunc("/books/{id}", handlers.UpdateBookHandler).Methods("PATCH")
 	protected.HandleFunc("/books/{id}", handlers.DeleteBookHandler).Methods("DELETE")
 
-	logger.LogInfo("Server starting on port 8080", logrus.Fields{"port": 8080})
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
-	err = http.ListenAndServe(":8080", r)
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
 	if err != nil {
 		logger.Logger.WithFields(logrus.Fields{
 			"error": err.Error(),
-			"port":  8080,
+			"port":  port,
 			"type":  "startup",
 		}).Fatal("Server failed to start")
 	}
+
+	// server starts in goroutine
+	go func() {
+		logger.LogInfo("Server starting", logrus.Fields{"port": port})
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Logger.WithFields(logrus.Fields{
+				"error": err.Error(),
+				"port":  port,
+				"type":  "startup",
+			}).Fatal("Server failed to start")
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	logger.LogInfo("Server ready - waiting for requests", logrus.Fields{"port": port})
+
+	// block until recieve a signal
+	<-quit
+	logger.LogInfo("Shutdown signal received, initiating graceful shutdown", logrus.Fields{"port": port})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		logger.LogInfo("Server forced to shutdown", logrus.Fields{"port": port})
+	}
+
+	logger.LogInfo("Server exited gracefully", logrus.Fields{"port": port})
 
 }
