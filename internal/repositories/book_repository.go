@@ -23,11 +23,7 @@ func NewBookCollection() *BookRepository {
 	}
 }
 
-// func GetMongoCollection(client *mongo.Client) *mongo.Collection {
-// 	return client.Database("library").Collection("books")
-// }
-
-func GetAllBooks() ([]models.Book, error) {
+func (br *BookRepository) GetAllBooks() ([]models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -55,7 +51,7 @@ func GetAllBooks() ([]models.Book, error) {
 	return books, nil
 }
 
-func GetOneBook(id int) (models.Book, error) {
+func (br *BookRepository) GetOneBook(id int) (models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -73,7 +69,7 @@ func GetOneBook(id int) (models.Book, error) {
 	return book, nil
 }
 
-func AddNewBook(book models.Book) (models.Book, error) {
+func (br *BookRepository) AddNewBook(book models.Book) (models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -121,7 +117,7 @@ func AddNewBook(book models.Book) (models.Book, error) {
 	return book, nil
 }
 
-func UpdateBook(id int, updates models.Book) (models.Book, error) {
+func (br *BookRepository) UpdateBook(id int, updates models.Book) (models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -204,7 +200,7 @@ func UpdateBook(id int, updates models.Book) (models.Book, error) {
 	return updatedBook, nil
 }
 
-func DeleteBook(id int) (models.Book, error) {
+func (br *BookRepository) DeleteBook(id int) (models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

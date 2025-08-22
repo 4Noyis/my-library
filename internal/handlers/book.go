@@ -12,55 +12,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// BooksHandler routes all book-related requests based on HTTP method
-// func BooksHandler(w http.ResponseWriter, r *http.Request) {
-// 	w.Header().Set("Content-Type", "application/json")
-
-// 	switch r.Method {
-// 	case http.MethodGet:
-// 		if r.URL.Query().Get("id") != "" {
-// 			GetOneBookHandler(w, r)
-// 		} else {
-// 			GetAllBooksHandler(w, r)
-// 		}
-// 	case http.MethodPost:
-// 		CreateBookHandler(w, r)
-// 	case http.MethodPatch:
-// 		UpdateBookHandler(w, r)
-// 	case http.MethodDelete:
-// 		DeleteBookHandler(w, r)
-// 	default:
-// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-// 	}
-// }
-
-// Alternative handlers for specific HTTP methods when using separate routes
-func GetBooksHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-Type", "application/json")
-	if r.URL.Query().Get("id") != "" {
-		GetOneBookHandler(w, r)
-	} else {
-		GetAllBooksHandler(w, r)
-	}
-}
-
-func PostBooksHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	CreateBookHandler(w, r)
-}
-
-func PatchBooksHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	UpdateBookHandler(w, r)
-}
-
-func DeleteBooksHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	DeleteBookHandler(w, r)
-}
+var bookService = services.NewBookService()
 
 func GetAllBooksHandler(w http.ResponseWriter, r *http.Request) {
-	books, err := services.GetAllBooks()
+	w.Header().Set("Content-Type", "application/json")
+	books, err := bookService.GetAllBooks()
 	if err != nil {
 		logger.LogError("GetAllBooks", err, logrus.Fields{
 			"handler": "GetAllBooksHandler",
@@ -78,6 +34,7 @@ func GetAllBooksHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetOneBookHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	if idStr == "" {
@@ -99,7 +56,7 @@ func GetOneBookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	book, err := services.GetOneBook(id)
+	book, err := bookService.GetOneBook(id)
 	if err != nil {
 		logger.LogError("GetOneBook", err, logrus.Fields{
 			"handler": "GetOneBookHandler",
@@ -119,6 +76,7 @@ func GetOneBookHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteBookHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	if idStr == "" {
@@ -140,7 +98,7 @@ func DeleteBookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deletedBook, err := services.DeleteBook(id)
+	deletedBook, err := bookService.DeleteBook(id)
 	if err != nil {
 		logger.LogError("DeleteBook", err, logrus.Fields{
 			"handler": "DeleteBookHandler",
@@ -167,6 +125,7 @@ func DeleteBookHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateBookHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	var newBook models.Book
 	err := json.NewDecoder(r.Body).Decode(&newBook)
 	if err != nil {
@@ -178,7 +137,7 @@ func CreateBookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdBook, err := services.AddNewBook(newBook)
+	createdBook, err := bookService.AddNewBook(newBook)
 	if err != nil {
 		logger.LogError("CreateBook", err, logrus.Fields{
 			"handler": "CreateBookHandler",
@@ -204,6 +163,7 @@ func CreateBookHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateBookHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	vars := mux.Vars(r)
 	idStr := vars["id"]
 	if idStr == "" {
@@ -237,7 +197,7 @@ func UpdateBookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedBook, err := services.UpdateBook(id, updates)
+	updatedBook, err := bookService.UpdateBook(id, updates)
 	if err != nil {
 		logger.LogError("UpdateBook", err, logrus.Fields{
 			"handler": "UpdateBookHandler",
