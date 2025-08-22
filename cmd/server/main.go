@@ -32,12 +32,20 @@ func main() {
 	// Add logging middleware
 	r.Use(middleware.LoggingMiddleware)
 
-	// RESTful routes
-	r.HandleFunc("/api/v1/books", handlers.GetAllBooksHandler).Methods("GET")
-	r.HandleFunc("/api/v1/books", handlers.CreateBookHandler).Methods("POST")
-	r.HandleFunc("/api/v1/books/{id}", handlers.GetOneBookHandler).Methods("GET")
-	r.HandleFunc("/api/v1/books/{id}", handlers.UpdateBookHandler).Methods("PATCH")
-	r.HandleFunc("/api/v1/books/{id}", handlers.DeleteBookHandler).Methods("DELETE")
+	// Public routes (no authentication required)
+	r.HandleFunc("/api/v1/auth/register", handlers.RegisterHandler).Methods("POST")
+	r.HandleFunc("/api/v1/auth/login", handlers.LoginHandler).Methods("POST")
+
+	// Protected routes (authentication required)
+	protected := r.PathPrefix("/api/v1").Subrouter()
+	protected.Use(middleware.AuthMiddleware)
+	
+	// Book routes - all require authentication
+	protected.HandleFunc("/books", handlers.GetAllBooksHandler).Methods("GET")
+	protected.HandleFunc("/books", handlers.CreateBookHandler).Methods("POST")
+	protected.HandleFunc("/books/{id}", handlers.GetOneBookHandler).Methods("GET")
+	protected.HandleFunc("/books/{id}", handlers.UpdateBookHandler).Methods("PATCH")
+	protected.HandleFunc("/books/{id}", handlers.DeleteBookHandler).Methods("DELETE")
 
 	logger.LogInfo("Server starting on port 8080", logrus.Fields{"port": 8080})
 

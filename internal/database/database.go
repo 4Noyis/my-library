@@ -76,3 +76,7 @@ func DisconnectMongoDB() {
 		}
 	}
 }
+
+func Collection(collectionName string) *mongo.Collection {
+	return client.Database("library").Collection(collectionName)
+}

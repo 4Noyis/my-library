@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/4Noyis/my-library/internal/database"
 	"github.com/4Noyis/my-library/internal/logger"
 	"github.com/4Noyis/my-library/internal/models"
 	"github.com/sirupsen/logrus"
@@ -12,16 +13,26 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-func GetMongoCollection(client *mongo.Client) *mongo.Collection {
-	return client.Database("library").Collection("books")
+type BookRepository struct {
+	collection string
 }
 
-func GetAllBooks(client *mongo.Client) ([]models.Book, error) {
+func NewBookCollection() *BookRepository {
+	return &BookRepository{
+		collection: "books",
+	}
+}
+
+// func GetMongoCollection(client *mongo.Client) *mongo.Collection {
+// 	return client.Database("library").Collection("books")
+// }
+
+func GetAllBooks() ([]models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	collection := GetMongoCollection(client)
+	collection := database.Collection("books")
 	cursor, err := collection.Find(ctx, bson.D{})
 	if err != nil {
 		logger.LogDatabaseOperation("find_all", "books", nil, time.Since(start).Milliseconds(), err)
@@ -44,12 +55,12 @@ func GetAllBooks(client *mongo.Client) ([]models.Book, error) {
 	return books, nil
 }
 
-func GetOneBook(client *mongo.Client, id int) (models.Book, error) {
+func GetOneBook(id int) (models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	collection := GetMongoCollection(client)
+	collection := database.Collection("books")
 	var book models.Book
 	err := collection.FindOne(ctx, bson.M{"id": id}).Decode(&book)
 
@@ -62,13 +73,12 @@ func GetOneBook(client *mongo.Client, id int) (models.Book, error) {
 	return book, nil
 }
 
-func AddNewBook(client *mongo.Client, book models.Book) (models.Book, error) {
+func AddNewBook(book models.Book) (models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	collection := GetMongoCollection(client)
-
+	collection := database.Collection("books")
 	// Find the highest existing ID
 	var lastBook models.Book
 	opts := options.FindOne().SetSort(bson.D{{Key: "id", Value: -1}})
@@ -111,12 +121,12 @@ func AddNewBook(client *mongo.Client, book models.Book) (models.Book, error) {
 	return book, nil
 }
 
-func UpdateBook(client *mongo.Client, id int, updates models.Book) (models.Book, error) {
+func UpdateBook(id int, updates models.Book) (models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	collection := GetMongoCollection(client)
+	collection := database.Collection("books")
 
 	// First check if book exists
 	var existingBook models.Book
@@ -194,12 +204,12 @@ func UpdateBook(client *mongo.Client, id int, updates models.Book) (models.Book,
 	return updatedBook, nil
 }
 
-func DeleteBook(client *mongo.Client, id int) (models.Book, error) {
+func DeleteBook(id int) (models.Book, error) {
 	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	collection := GetMongoCollection(client)
+	collection := database.Collection("books")
 	var book models.Book
 	err := collection.FindOne(ctx, bson.M{"id": id}).Decode(&book)
 	if err != nil {

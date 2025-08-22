@@ -12,30 +12,30 @@ import (
 )
 
 func GetAllBooks() ([]models.Book, error) {
-	return repositories.GetAllBooks(database.GetClient())
+	return repositories.GetAllBooks()
 }
 
 func GetOneBook(id int) (models.Book, error) {
-	return repositories.GetOneBook(database.GetClient(), id)
+	return repositories.GetOneBook(id)
 }
 
 func DeleteBook(id int) (models.Book, error) {
-	return repositories.DeleteBook(database.GetClient(), id)
+	return repositories.DeleteBook(id)
 }
 
 func AddNewBook(book models.Book) (models.Book, error) {
-	return repositories.AddNewBook(database.GetClient(), book)
+	return repositories.AddNewBook(book)
 }
 
 func UpdateBook(id int, updates models.Book) (models.Book, error) {
-	return repositories.UpdateBook(database.GetClient(), id, updates)
+	return repositories.UpdateBook(id, updates)
 }
 
 func AddItemMongoDB(book *models.Book) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	collection := repositories.GetMongoCollection(database.GetClient())
+	collection := database.Collection("books")
 	_, err := collection.InsertOne(ctx, book)
 	if err != nil {
 		logger.LogError("AddItemMongoDB", err, logrus.Fields{
