@@ -2,10 +2,11 @@ package repositories
 
 import (
 	"context"
-	"log"
 	"time"
 
+	"github.com/4Noyis/my-library/internal/logger"
 	"github.com/4Noyis/my-library/internal/models"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -16,31 +17,44 @@ func GetMongoCollection(client *mongo.Client) *mongo.Collection {
 }
 
 func GetAllBooks(client *mongo.Client) ([]models.Book, error) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	collection := GetMongoCollection(client)
 	cursor, err := collection.Find(ctx, bson.D{})
 	if err != nil {
+		logger.LogDatabaseOperation("find_all", "books", nil, time.Since(start).Milliseconds(), err)
 		return nil, err
 	}
 	defer cursor.Close(ctx)
 
 	var books []models.Book
 	if err = cursor.All(ctx, &books); err != nil {
+		logger.LogDatabaseOperation("find_all", "books", nil, time.Since(start).Milliseconds(), err)
 		return nil, err
 	}
+
+	logger.LogDatabaseOperation("find_all", "books", nil, time.Since(start).Milliseconds(), nil)
+	logger.LogDebug("Retrieved all books from database", logrus.Fields{
+		"count":    len(books),
+		"duration": time.Since(start).Milliseconds(),
+	})
 
 	return books, nil
 }
 
 func GetOneBook(client *mongo.Client, id int) (models.Book, error) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	collection := GetMongoCollection(client)
 	var book models.Book
 	err := collection.FindOne(ctx, bson.M{"id": id}).Decode(&book)
+
+	logger.LogDatabaseOperation("find_one", "books", id, time.Since(start).Milliseconds(), err)
+
 	if err != nil {
 		return models.Book{}, err
 	}
@@ -49,6 +63,7 @@ func GetOneBook(client *mongo.Client, id int) (models.Book, error) {
 }
 
 func AddNewBook(client *mongo.Client, book models.Book) (models.Book, error) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -56,14 +71,16 @@ func AddNewBook(client *mongo.Client, book models.Book) (models.Book, error) {
 
 	// Find the highest existing ID
 	var lastBook models.Book
-	opts := options.FindOne().SetSort(bson.D{{"id", -1}})
+	opts := options.FindOne().SetSort(bson.D{{Key: "id", Value: -1}})
 
 	err := collection.FindOne(ctx, bson.D{}, opts).Decode(&lastBook)
 	nextID := 1
 	if err == nil {
 		nextID = lastBook.ID + 1
 	} else if err != mongo.ErrNoDocuments {
-		log.Println("error finding last book:", err)
+		logger.LogError("AddNewBook", err, logrus.Fields{
+			"operation": "find_last_id",
+		})
 		return book, err
 	}
 
@@ -73,31 +90,45 @@ func AddNewBook(client *mongo.Client, book models.Book) (models.Book, error) {
 	book.UpdatedAt = time.Now()
 
 	ss, err := collection.InsertOne(ctx, book)
+
+	logger.LogDatabaseOperation("insert", "books", book.ID, time.Since(start).Milliseconds(), err)
+
 	if err != nil {
-		log.Println("book can not added")
+		logger.LogError("AddNewBook", err, logrus.Fields{
+			"operation": "insert_one",
+			"book_id":   book.ID,
+		})
 		return book, err
 	}
-	log.Println("book added successfully new book id:", ss.InsertedID)
+
+	logger.LogInfo("Book added successfully", logrus.Fields{
+		"book_id":     book.ID,
+		"inserted_id": ss.InsertedID,
+		"title":       book.Title,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
+
 	return book, nil
 }
 
 func UpdateBook(client *mongo.Client, id int, updates models.Book) (models.Book, error) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	collection := GetMongoCollection(client)
-	
+
 	// First check if book exists
 	var existingBook models.Book
 	err := collection.FindOne(ctx, bson.M{"id": id}).Decode(&existingBook)
 	if err != nil {
-		log.Println("book id not found")
+		logger.LogDatabaseOperation("find_for_update", "books", id, time.Since(start).Milliseconds(), err)
 		return models.Book{}, err
 	}
 
 	// Build update document dynamically based on provided fields
 	updateDoc := bson.M{}
-	
+
 	if updates.ISBN != "" {
 		updateDoc["isbn"] = updates.ISBN
 	}
@@ -131,14 +162,14 @@ func UpdateBook(client *mongo.Client, id int, updates models.Book) (models.Book,
 	if updates.Location != "" {
 		updateDoc["location"] = updates.Location
 	}
-	
+
 	// Always update the updated_at field
 	updateDoc["updated_at"] = time.Now()
 
 	// Perform the update
 	_, err = collection.UpdateOne(ctx, bson.M{"id": id}, bson.M{"$set": updateDoc})
 	if err != nil {
-		log.Println("failed to update book:", err)
+		logger.LogDatabaseOperation("update", "books", id, time.Since(start).Milliseconds(), err)
 		return models.Book{}, err
 	}
 
@@ -146,15 +177,25 @@ func UpdateBook(client *mongo.Client, id int, updates models.Book) (models.Book,
 	var updatedBook models.Book
 	err = collection.FindOne(ctx, bson.M{"id": id}).Decode(&updatedBook)
 	if err != nil {
-		log.Println("failed to retrieve updated book:", err)
+		logger.LogError("UpdateBook", err, logrus.Fields{
+			"operation": "retrieve_updated",
+			"book_id":   id,
+		})
 		return models.Book{}, err
 	}
 
-	log.Println("book updated successfully with id:", id)
+	logger.LogDatabaseOperation("update", "books", id, time.Since(start).Milliseconds(), nil)
+	logger.LogInfo("Book updated successfully", logrus.Fields{
+		"book_id":     id,
+		"title":       updatedBook.Title,
+		"duration_ms": time.Since(start).Milliseconds(),
+	})
+
 	return updatedBook, nil
 }
 
 func DeleteBook(client *mongo.Client, id int) (models.Book, error) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -162,19 +203,32 @@ func DeleteBook(client *mongo.Client, id int) (models.Book, error) {
 	var book models.Book
 	err := collection.FindOne(ctx, bson.M{"id": id}).Decode(&book)
 	if err != nil {
-		log.Println("book id not found")
+		logger.LogDatabaseOperation("find_for_delete", "books", id, time.Since(start).Milliseconds(), err)
 		return models.Book{}, err
 	}
+
 	deleted, err := collection.DeleteOne(ctx, bson.M{"id": id})
 	if err != nil {
-		log.Println("can not delete book on collection")
+		logger.LogDatabaseOperation("delete", "books", id, time.Since(start).Milliseconds(), err)
 		return models.Book{}, err
 	}
+
 	if deleted.DeletedCount == 0 {
-		log.Println("no document was deleted")
+		logger.LogError("DeleteBook", mongo.ErrNoDocuments, logrus.Fields{
+			"operation":     "delete_one",
+			"book_id":       id,
+			"deleted_count": deleted.DeletedCount,
+		})
 		return models.Book{}, mongo.ErrNoDocuments
 	}
 
-	log.Println("book deleted successfully deletedCount: ", deleted.DeletedCount)
+	logger.LogDatabaseOperation("delete", "books", id, time.Since(start).Milliseconds(), nil)
+	logger.LogInfo("Book deleted successfully", logrus.Fields{
+		"book_id":       id,
+		"title":         book.Title,
+		"deleted_count": deleted.DeletedCount,
+		"duration_ms":   time.Since(start).Milliseconds(),
+	})
+
 	return book, nil
 }

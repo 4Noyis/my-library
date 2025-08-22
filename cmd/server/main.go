@@ -1,48 +1,53 @@
 package main
 
 import (
-	"log"
 	"net/http"
-	"time"
 
 	database "github.com/4Noyis/my-library/internal/database"
 	"github.com/4Noyis/my-library/internal/handlers"
-	"github.com/4Noyis/my-library/internal/models"
+	"github.com/4Noyis/my-library/internal/logger"
+	"github.com/4Noyis/my-library/internal/middleware"
+	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
 
+	logger.LogInfo("Starting library management server", nil)
+
 	err := database.ConnectMongoDB()
 	if err != nil {
-		log.Fatal("failed to connect to mongodb:", err)
+		logger.Logger.WithFields(logrus.Fields{
+			"error": err.Error(),
+			"type":  "startup",
+		}).Fatal("Failed to connect to MongoDB")
 	}
 	defer database.DisconnectMongoDB()
-	http.HandleFunc("/books", handlers.BookHandler)
-	err = http.ListenAndServe(":8080", nil)
+
+	// Single handler that routes internally by HTTP method
+	// http.HandleFunc("/api/v1/books", handlers.BooksHandler)
+
+	r := mux.NewRouter()
+
+	// Add logging middleware
+	r.Use(middleware.LoggingMiddleware)
+
+	// RESTful routes
+	r.HandleFunc("/api/v1/books", handlers.GetAllBooksHandler).Methods("GET")
+	r.HandleFunc("/api/v1/books", handlers.CreateBookHandler).Methods("POST")
+	r.HandleFunc("/api/v1/books/{id}", handlers.GetOneBookHandler).Methods("GET")
+	r.HandleFunc("/api/v1/books/{id}", handlers.UpdateBookHandler).Methods("PATCH")
+	r.HandleFunc("/api/v1/books/{id}", handlers.DeleteBookHandler).Methods("DELETE")
+
+	logger.LogInfo("Server starting on port 8080", logrus.Fields{"port": 8080})
+
+	err = http.ListenAndServe(":8080", r)
 	if err != nil {
-		log.Fatal("server error: ", err)
+		logger.Logger.WithFields(logrus.Fields{
+			"error": err.Error(),
+			"port":  8080,
+			"type":  "startup",
+		}).Fatal("Server failed to start")
 	}
 
-	// newBook := generateBook()
-	// services.AddItemMongoDB(&newBook)
-
-}
-
-func generateBook() models.Book {
-	return models.Book{
-		ID:          3,
-		ISBN:        "978-0-452-28423-4",
-		Title:       "1984",
-		Author:      "George Orwell",
-		Publisher:   "Plume",
-		PublishedAt: time.Date(1949, 6, 8, 0, 0, 0, 0, time.UTC),
-		Genre:       "Dystopian Fiction",
-		Language:    "English",
-		Pages:       328,
-		Description: "A dystopian social science fiction novel about totalitarian control and surveillance.",
-		CoverURL:    "https://example.com/covers/1984.jpg",
-		Location:    "C-3-08",
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
 }

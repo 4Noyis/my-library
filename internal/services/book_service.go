@@ -2,12 +2,13 @@ package services
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/4Noyis/my-library/internal/database"
+	"github.com/4Noyis/my-library/internal/logger"
 	"github.com/4Noyis/my-library/internal/models"
 	"github.com/4Noyis/my-library/internal/repositories"
+	"github.com/sirupsen/logrus"
 )
 
 func GetAllBooks() ([]models.Book, error) {
@@ -31,15 +32,21 @@ func UpdateBook(id int, updates models.Book) (models.Book, error) {
 }
 
 func AddItemMongoDB(book *models.Book) {
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	collection := repositories.GetMongoCollection(database.GetClient())
 	_, err := collection.InsertOne(ctx, book)
 	if err != nil {
-		log.Println("inserting item error:", err)
+		logger.LogError("AddItemMongoDB", err, logrus.Fields{
+			"operation": "insert_one",
+			"title":     book.Title,
+		})
+		return
 	}
-	log.Println("new book added succesfully")
 
+	logger.LogInfo("Book added successfully via AddItemMongoDB", logrus.Fields{
+		"operation": "AddItemMongoDB",
+		"title":     book.Title,
+	})
 }

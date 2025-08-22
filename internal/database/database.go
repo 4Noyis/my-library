@@ -3,10 +3,11 @@ package database
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"time"
 
+	"github.com/4Noyis/my-library/internal/logger"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -18,15 +19,23 @@ func GetClient() *mongo.Client {
 }
 
 func ConnectMongoDB() error {
-
 	uri := os.Getenv("MONGO_URI")
 	if uri == "" {
 		return errors.New("cannot get uri address")
 	}
+
+	logger.LogDebug("Attempting to connect to MongoDB", logrus.Fields{
+		"operation": "ConnectMongoDB",
+		"uri_set":   uri != "",
+	})
+
 	opts := options.Client().ApplyURI(uri)
 
 	Client, err := mongo.Connect(opts)
 	if err != nil {
+		logger.LogError("ConnectMongoDB", err, logrus.Fields{
+			"operation": "mongo.Connect",
+		})
 		return err
 	}
 
@@ -35,12 +44,18 @@ func ConnectMongoDB() error {
 
 	err = Client.Ping(ctx, nil)
 	if err != nil {
+		logger.LogError("ConnectMongoDB", err, logrus.Fields{
+			"operation": "ping",
+		})
 		return err
 	}
 
 	client = Client
 
-	log.Println("connected to mongodb succesfully")
+	logger.LogInfo("Connected to MongoDB successfully", logrus.Fields{
+		"operation": "ConnectMongoDB",
+		"database":  "library",
+	})
 	return nil
 }
 
@@ -51,9 +66,13 @@ func DisconnectMongoDB() {
 
 		err := client.Disconnect(ctx)
 		if err != nil {
-			log.Println("disconnect error:", err)
+			logger.LogError("DisconnectMongoDB", err, logrus.Fields{
+				"operation": "disconnect",
+			})
+		} else {
+			logger.LogInfo("Disconnected from MongoDB", logrus.Fields{
+				"operation": "DisconnectMongoDB",
+			})
 		}
-		log.Println("Disconnect from mongodb")
 	}
-
 }
